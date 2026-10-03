@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coupe du Monde 2022 - Top 8</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-body: #f3f4f6; --bg-panel: #ffffff; --bg-hover: #f9fafb;
+            --text-main: #111827; --text-muted: #6b7280; --border-color: #e5e7eb;
+            --team-color: #111827;
+            --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; position: relative; }
+
+        .source-text { position: fixed; bottom: 10px; left: 15px; font-size: 0.7rem; color: #9ca3af; z-index: 100; pointer-events: none; font-weight: 500; }
+
+        .sidebar { width: 320px; background-color: var(--bg-panel); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 10; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border-color); }
+        .sidebar-header h1 { font-size: 1.2rem; font-weight: 800; cursor: pointer; }
+        .sidebar-header h1 span { color: var(--team-color); transition: color 0.3s; }
+        .search-bar { width: 100%; padding: 10px; margin-top: 15px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; }
+        .search-bar:focus { border-color: var(--team-color); }
+        
+        .team-list { flex: 1; overflow-y: auto; padding-bottom: 40px; }
+        .team-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; cursor: pointer; border-bottom: 1px solid var(--bg-body); }
+        .team-item:hover { background-color: var(--bg-hover); }
+        .team-item.active { background-color: rgba(0,0,0,0.03); border-left: 4px solid var(--team-color); }
+        .team-flag { width: 28px; border-radius: 2px; box-shadow: var(--shadow-sm); }
+        .team-name { font-weight: 600; font-size: 0.95rem; }
+
+        .main-content { flex: 1; overflow-y: auto; }
+        .content-wrapper { padding: 40px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
+        .back-btn { display: inline-flex; align-items: center; font-weight: 600; color: var(--team-color); cursor: pointer; padding: 8px 16px; background: rgba(0,0,0,0.05); border-radius: 8px; width: fit-content; border: none; }
+        .back-btn:hover { background: rgba(0,0,0,0.1); }
+
+        .page-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+        .page-header h2 { font-size: 2.5rem; font-weight: 800; display: flex; align-items: center; gap: 15px; }
+        .header-flag { height: 40px; border-radius: 4px; box-shadow: var(--shadow-md); }
+        .badge { background-color: var(--team-color); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 700; text-transform: uppercase; }
+
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        
+        .card { background-color: var(--bg-panel); padding: 25px; border-radius: 12px; box-shadow: var(--shadow-md); border: 1px solid var(--border-color); }
+        .card-title { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; font-weight: 600; margin-bottom: 10px; }
+        
+        .stat-card { text-align: center; cursor: pointer; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-4px); border-color: var(--team-color); }
+        .stat-card .value { font-size: 2.5rem; font-weight: 800; color: var(--team-color); }
+        .stat-card .click-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; opacity: 0; transition: opacity 0.2s; }
+        .stat-card:hover .click-hint { opacity: 1; color: var(--team-color); }
+
+        .card-clickable { cursor: pointer; transition: transform 0.2s, border-color 0.2s; position: relative; }
+        .card-clickable:hover { transform: translateY(-4px); border-color: var(--team-color); }
+        .card-clickable .click-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; text-align: center; opacity: 0; transition: opacity 0.2s; }
+        .card-clickable:hover .click-hint { opacity: 1; color: var(--team-color); }
+        
+        .list-container { background-color: var(--bg-panel); border-radius: 12px; box-shadow: var(--shadow-md); border: 1px solid var(--border-color); overflow: hidden; display: flex; flex-direction: column; }
+        .list-header { padding: 15px 20px; background-color: var(--bg-hover); border-bottom: 1px solid var(--border-color); font-weight: 700; }
+        .squad-list { overflow-y: auto; max-height: 420px; }
+        
+        .list-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border-color); }
+        .player-row { cursor: pointer; transition: background 0.2s; }
+        .player-row:hover { background-color: var(--bg-hover); border-left: 4px solid var(--team-color); padding-left: 16px; }
+        .player-name { font-weight: 600; }
+        .player-pos { font-size: 0.85rem; color: var(--text-muted); }
+        .player-stat { font-weight: 700; color: var(--team-color); }
+
+        .team-grid-card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; cursor: pointer; text-align: center; gap: 15px; }
+        .team-grid-card:hover { border-color: var(--team-color); transform: translateY(-5px); box-shadow: var(--shadow-md); }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17,24,39,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { background: var(--bg-panel); width: 520px; max-height: 80vh; border-radius: 12px; display: flex; flex-direction: column; }
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-weight: 700; color: var(--team-color); }
+        .close-btn { cursor: pointer; font-size: 1.5rem; color: var(--text-muted); border: none; background: transparent; }
+        .modal-body { overflow-y: auto; flex: 1; padding: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="source-text">Source : FIFA / Opta (CM 2022)</div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1 onclick="navigate('home')">Coupe du Monde <span>2022</span></h1>
+            <input type="text" id="searchInput" class="search-bar" placeholder="Rechercher une équipe...">
+        </div>
+        <div class="team-list" id="sidebarList"></div>
+    </div>
+
+    <div class="main-content" id="app"></div>
+
+    <div class="modal-overlay" id="dataModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Titre</h3>
+                <button class="close-btn" onclick="closeModal()">✖</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        const teamsData = {
+            'ARG': {
+                id: 'ARG', name: 'Argentine', flag: 'ar', color: '#43A1D5', result: 'Vainqueur',
+                stats: { matches: 7, goals: 15, conceded: 8 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Arabie Saoudite', score: '1 - 2', conceded: 2 },
+                    { stage: 'Groupe', opp: 'Mexique', score: '2 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Pologne', score: '2 - 0', conceded: 0 },
+                    { stage: '1/8 finale', opp: 'Australie', score: '2 - 1', conceded: 1 },
+                    { stage: '1/4 finale', opp: 'Pays-Bas', score: '2 - 2 (4-3 tab)', conceded: 2 },
+                    { stage: '1/2 finale', opp: 'Croatie', score: '3 - 0', conceded: 0 },
+                    { stage: 'Finale', opp: 'France', score: '3 - 3 (4-2 tab)', conceded: 3 }
+                ],
+                players: [
+                    { id: 1, name: 'Lionel Messi', pos: 'Attaquant', goals: 7, assists: 3, matches: 7, radar: [96, 95, 34, 66, 95, 98] },
+                    { id: 2, name: 'Julián Álvarez', pos: 'Attaquant', goals: 4, assists: 0, matches: 7, radar: [88, 74, 48, 82, 80, 78] },
+                    { id: 3, name: 'Enzo Fernández', pos: 'Milieu', goals: 1, assists: 1, matches: 7, radar: [76, 89, 82, 85, 82, 86] },
+                    { id: 4, name: 'Alexis Mac Allister', pos: 'Milieu', goals: 1, assists: 1, matches: 6, radar: [78, 86, 75, 80, 84, 84] },
+                    { id: 5, name: 'Nahuel Molina', pos: 'Défenseur', goals: 1, assists: 1, matches: 7, radar: [62, 78, 85, 88, 75, 74] },
+                    { id: 6, name: 'Ángel Di María', pos: 'Attaquant', goals: 1, assists: 1, matches: 5, radar: [82, 88, 42, 68, 90, 88] },
+                    { id: 7, name: 'Nicolás Otamendi', pos: 'Défenseur', goals: 0, assists: 1, matches: 7, radar: [45, 75, 93, 90, 52, 68] },
+                    { id: 8, name: 'Rodrigo De Paul', pos: 'Milieu', goals: 0, assists: 0, matches: 7, radar: [68, 84, 80, 92, 78, 80] },
+                    { id: 9, name: 'Cristian Romero', pos: 'Défenseur', goals: 0, assists: 0, matches: 7, radar: [42, 72, 92, 88, 55, 65] },
+                    { id: 10, name: 'Emiliano Martínez', pos: 'Gardien', goals: 0, assists: 0, matches: 7, radar: [86, 76, 92, 84, 40, 95] }
+                ]
+            },
+            'FRA': {
+                id: 'FRA', name: 'France', flag: 'fr', color: '#002654', result: 'Finaliste',
+                stats: { matches: 7, goals: 16, conceded: 8 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Australie', score: '4 - 1', conceded: 1 },
+                    { stage: 'Groupe', opp: 'Danemark', score: '2 - 1', conceded: 1 },
+                    { stage: 'Groupe', opp: 'Tunisie', score: '0 - 1', conceded: 1 },
+                    { stage: '1/8 finale', opp: 'Pologne', score: '3 - 1', conceded: 1 },
+                    { stage: '1/4 finale', opp: 'Angleterre', score: '2 - 1', conceded: 1 },
+                    { stage: '1/2 finale', opp: 'Maroc', score: '2 - 0', conceded: 0 },
+                    { stage: 'Finale', opp: 'Argentine', score: '3 - 3 (2-4 tab)', conceded: 3 }
+                ],
+                players: [
+                    { id: 11, name: 'Kylian Mbappé', pos: 'Attaquant', goals: 8, assists: 2, matches: 7, radar: [98, 82, 28, 89, 97, 86] },
+                    { id: 12, name: 'Olivier Giroud', pos: 'Attaquant', goals: 4, assists: 0, matches: 6, radar: [89, 72, 42, 91, 68, 76] },
+                    { id: 13, name: 'Antoine Griezmann', pos: 'Milieu', goals: 0, assists: 3, matches: 7, radar: [76, 94, 76, 80, 85, 96] },
+                    { id: 14, name: 'Ousmane Dembélé', pos: 'Attaquant', goals: 0, assists: 2, matches: 7, radar: [78, 85, 36, 76, 94, 82] },
+                    { id: 15, name: 'Marcus Thuram', pos: 'Attaquant', goals: 0, assists: 2, matches: 5, radar: [80, 75, 40, 88, 84, 75] },
+                    { id: 16, name: 'Adrien Rabiot', pos: 'Milieu', goals: 1, assists: 1, matches: 6, radar: [76, 83, 82, 86, 80, 82] },
+                    { id: 17, name: 'Théo Hernandez', pos: 'Défenseur', goals: 1, assists: 2, matches: 6, radar: [72, 82, 82, 94, 86, 80] },
+                    { id: 18, name: 'Aurélien Tchouaméni', pos: 'Milieu', goals: 1, assists: 0, matches: 7, radar: [74, 87, 88, 88, 80, 85] },
+                    { id: 19, name: 'Randal Kolo Muani', pos: 'Attaquant', goals: 1, assists: 0, matches: 3, radar: [82, 74, 38, 86, 86, 75] },
+                    { id: 20, name: 'Hugo Lloris', pos: 'Gardien', goals: 0, assists: 0, matches: 6, radar: [84, 72, 86, 76, 42, 89] }
+                ]
+            },
+            'CRO': {
+                id: 'CRO', name: 'Croatie', flag: 'hr', color: '#c1272d', result: '3ème place',
+                stats: { matches: 7, goals: 8, conceded: 7 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Maroc', score: '0 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Canada', score: '4 - 1', conceded: 1 },
+                    { stage: 'Groupe', opp: 'Belgique', score: '0 - 0', conceded: 0 },
+                    { stage: '1/8 finale', opp: 'Japon', score: '1 - 1 (3-1 tab)', conceded: 1 },
+                    { stage: '1/4 finale', opp: 'Brésil', score: '1 - 1 (4-2 tab)', conceded: 1 },
+                    { stage: '1/2 finale', opp: 'Argentine', score: '0 - 3', conceded: 3 },
+                    { stage: '3e place', opp: 'Maroc', score: '2 - 1', conceded: 1 }
+                ],
+                players: [
+                    { id: 21, name: 'Andrej Kramarić', pos: 'Attaquant', goals: 2, assists: 0, matches: 7, radar: [84, 76, 38, 76, 82, 79] },
+                    { id: 22, name: 'Ivan Perišić', pos: 'Milieu', goals: 1, assists: 3, matches: 7, radar: [82, 86, 68, 89, 83, 86] },
+                    { id: 23, name: 'Marko Livaja', pos: 'Attaquant', goals: 1, assists: 1, matches: 6, radar: [80, 72, 35, 84, 78, 74] },
+                    { id: 24, name: 'Lovro Majer', pos: 'Milieu', goals: 1, assists: 0, matches: 7, radar: [76, 84, 60, 74, 82, 82] },
+                    { id: 25, name: 'Bruno Petković', pos: 'Attaquant', goals: 1, assists: 0, matches: 6, radar: [79, 75, 42, 88, 76, 75] },
+                    { id: 26, name: 'Mislav Oršić', pos: 'Attaquant', goals: 1, assists: 2, matches: 6, radar: [81, 80, 40, 78, 84, 80] },
+                    { id: 27, name: 'Joško Gvardiol', pos: 'Défenseur', goals: 1, assists: 0, matches: 7, radar: [58, 83, 94, 91, 76, 77] },
+                    { id: 28, name: 'Luka Modrić', pos: 'Milieu', goals: 0, assists: 0, matches: 7, radar: [76, 96, 72, 76, 89, 98] },
+                    { id: 29, name: 'Mateo Kovačić', pos: 'Milieu', goals: 0, assists: 0, matches: 7, radar: [72, 90, 78, 84, 90, 87] },
+                    { id: 30, name: 'Dominik Livaković', pos: 'Gardien', goals: 0, assists: 0, matches: 7, radar: [92, 76, 86, 80, 45, 94] }
+                ]
+            },
+            'MAR': {
+                id: 'MAR', name: 'Maroc', flag: 'ma', color: '#006233', result: '4ème place',
+                stats: { matches: 7, goals: 6, conceded: 5 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Croatie', score: '0 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Belgique', score: '2 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Canada', score: '2 - 1', conceded: 1 },
+                    { stage: '1/8 finale', opp: 'Espagne', score: '0 - 0 (3-0 tab)', conceded: 0 },
+                    { stage: '1/4 finale', opp: 'Portugal', score: '1 - 0', conceded: 0 },
+                    { stage: '1/2 finale', opp: 'France', score: '0 - 2', conceded: 2 },
+                    { stage: '3e place', opp: 'Croatie', score: '1 - 2', conceded: 2 }
+                ],
+                players: [
+                    { id: 31, name: 'Youssef En-Nesyri', pos: 'Attaquant', goals: 2, assists: 0, matches: 7, radar: [83, 67, 44, 89, 76, 72] },
+                    { id: 32, name: 'Hakim Ziyech', pos: 'Attaquant', goals: 1, assists: 1, matches: 7, radar: [82, 89, 52, 72, 89, 87] },
+                    { id: 33, name: 'Zakaria Aboukhlal', pos: 'Attaquant', goals: 1, assists: 0, matches: 4, radar: [78, 72, 40, 80, 80, 74] },
+                    { id: 34, name: 'Romain Saïss', pos: 'Défenseur', goals: 1, assists: 0, matches: 6, radar: [52, 72, 91, 88, 54, 68] },
+                    { id: 35, name: 'Achraf Dari', pos: 'Défenseur', goals: 1, assists: 0, matches: 3, radar: [50, 68, 87, 86, 52, 64] },
+                    { id: 36, name: 'Achraf Hakimi', pos: 'Défenseur', goals: 0, assists: 1, matches: 7, radar: [75, 83, 85, 95, 88, 81] },
+                    { id: 37, name: 'Yahya Attiat-Allah', pos: 'Défenseur', goals: 0, assists: 1, matches: 6, radar: [62, 79, 82, 85, 78, 76] },
+                    { id: 38, name: 'Azzedine Ounahi', pos: 'Milieu', goals: 0, assists: 0, matches: 7, radar: [70, 88, 72, 78, 92, 86] },
+                    { id: 39, name: 'Sofyan Amrabat', pos: 'Milieu', goals: 0, assists: 0, matches: 7, radar: [66, 85, 90, 93, 79, 83] },
+                    { id: 40, name: 'Yassine Bounou', pos: 'Gardien', goals: 0, assists: 0, matches: 6, radar: [89, 76, 87, 82, 42, 92] }
+                ]
+            },
+            'NED': {
+                id: 'NED', name: 'Pays-Bas', flag: 'nl', color: '#f36c21', result: 'Quart de finale',
+                stats: { matches: 5, goals: 10, conceded: 4 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Sénégal', score: '2 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Équateur', score: '1 - 1', conceded: 1 },
+                    { stage: 'Groupe', opp: 'Qatar', score: '2 - 0', conceded: 0 },
+                    { stage: '1/8 finale', opp: 'États-Unis', score: '3 - 1', conceded: 1 },
+                    { stage: '1/4 finale', opp: 'Argentine', score: '2 - 2 (3-4 tab)', conceded: 2 }
+                ],
+                players: [
+                    { id: 41, name: 'Cody Gakpo', pos: 'Attaquant', goals: 3, assists: 0, matches: 5, radar: [88, 82, 45, 84, 88, 82] },
+                    { id: 42, name: 'Wout Weghorst', pos: 'Attaquant', goals: 2, assists: 0, matches: 4, radar: [84, 68, 48, 93, 70, 72] },
+                    { id: 43, name: 'Memphis Depay', pos: 'Attaquant', goals: 1, assists: 0, matches: 5, radar: [85, 82, 38, 78, 88, 84] },
+                    { id: 44, name: 'Denzel Dumfries', pos: 'Défenseur', goals: 1, assists: 2, matches: 5, radar: [74, 80, 82, 92, 80, 78] },
+                    { id: 45, name: 'Daley Blind', pos: 'Défenseur', goals: 1, assists: 1, matches: 5, radar: [65, 86, 82, 72, 76, 86] },
+                    { id: 46, name: 'Frenkie de Jong', pos: 'Milieu', goals: 1, assists: 1, matches: 5, radar: [72, 92, 80, 82, 92, 90] },
+                    { id: 47, name: 'Davy Klaassen', pos: 'Milieu', goals: 1, assists: 1, matches: 4, radar: [76, 82, 70, 78, 76, 82] },
+                    { id: 48, name: 'Virgil van Dijk', pos: 'Défenseur', goals: 0, assists: 0, matches: 5, radar: [55, 82, 95, 94, 68, 82] },
+                    { id: 49, name: 'Nathan Aké', pos: 'Défenseur', goals: 0, assists: 0, matches: 5, radar: [50, 78, 88, 84, 72, 76] },
+                    { id: 50, name: 'Andries Noppert', pos: 'Gardien', goals: 0, assists: 0, matches: 5, radar: [84, 76, 88, 88, 45, 84] }
+                ]
+            },
+            'ENG': {
+                id: 'ENG', name: 'Angleterre', flag: 'gb-eng', color: '#ce1124', result: 'Quart de finale',
+                stats: { matches: 5, goals: 13, conceded: 4 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Iran', score: '6 - 2', conceded: 2 },
+                    { stage: 'Groupe', opp: 'États-Unis', score: '0 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Pays de Galles', score: '3 - 0', conceded: 0 },
+                    { stage: '1/8 finale', opp: 'Sénégal', score: '3 - 0', conceded: 0 },
+                    { stage: '1/4 finale', opp: 'France', score: '1 - 2', conceded: 2 }
+                ],
+                players: [
+                    { id: 51, name: 'Bukayo Saka', pos: 'Attaquant', goals: 3, assists: 0, matches: 4, radar: [87, 84, 52, 78, 88, 85] },
+                    { id: 52, name: 'Marcus Rashford', pos: 'Attaquant', goals: 3, assists: 0, matches: 5, radar: [89, 78, 42, 85, 89, 80] },
+                    { id: 53, name: 'Harry Kane', pos: 'Attaquant', goals: 2, assists: 3, matches: 5, radar: [94, 88, 45, 86, 80, 92] },
+                    { id: 54, name: 'Jude Bellingham', pos: 'Milieu', goals: 1, assists: 1, matches: 5, radar: [82, 86, 78, 86, 88, 88] },
+                    { id: 55, name: 'Phil Foden', pos: 'Milieu', goals: 1, assists: 2, matches: 4, radar: [84, 87, 48, 74, 91, 88] },
+                    { id: 56, name: 'Raheem Sterling', pos: 'Attaquant', goals: 1, assists: 1, matches: 3, radar: [82, 78, 40, 75, 88, 80] },
+                    { id: 57, name: 'Jordan Henderson', pos: 'Milieu', goals: 1, assists: 0, matches: 4, radar: [70, 82, 78, 84, 74, 82] },
+                    { id: 58, name: 'Harry Maguire', pos: 'Défenseur', goals: 0, assists: 1, matches: 5, radar: [58, 76, 89, 92, 55, 72] },
+                    { id: 59, name: 'Declan Rice', pos: 'Milieu', goals: 0, assists: 0, matches: 5, radar: [68, 86, 88, 88, 80, 84] },
+                    { id: 60, name: 'Jordan Pickford', pos: 'Gardien', goals: 0, assists: 0, matches: 5, radar: [85, 84, 84, 80, 52, 88] }
+                ]
+            },
+            'BRA': {
+                id: 'BRA', name: 'Brésil', flag: 'br', color: '#009b3a', result: 'Quart de finale',
+                stats: { matches: 5, goals: 8, conceded: 3 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Serbie', score: '2 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Suisse', score: '1 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Cameroun', score: '0 - 1', conceded: 1 },
+                    { stage: '1/8 finale', opp: 'Corée du Sud', score: '4 - 1', conceded: 1 },
+                    { stage: '1/4 finale', opp: 'Croatie', score: '1 - 1 (2-4 tab)', conceded: 1 }
+                ],
+                players: [
+                    { id: 61, name: 'Richarlison', pos: 'Attaquant', goals: 3, assists: 0, matches: 4, radar: [88, 72, 48, 84, 82, 76] },
+                    { id: 62, name: 'Neymar', pos: 'Attaquant', goals: 2, assists: 1, matches: 3, radar: [90, 92, 38, 72, 96, 95] },
+                    { id: 63, name: 'Vinícius Júnior', pos: 'Attaquant', goals: 1, assists: 2, matches: 4, radar: [86, 82, 36, 84, 96, 84] },
+                    { id: 64, name: 'Lucas Paquetá', pos: 'Milieu', goals: 1, assists: 1, matches: 4, radar: [78, 85, 74, 82, 86, 85] },
+                    { id: 65, name: 'Casemiro', pos: 'Milieu', goals: 1, assists: 0, matches: 4, radar: [76, 85, 92, 90, 78, 85] },
+                    { id: 66, name: 'Thiago Silva', pos: 'Défenseur', goals: 0, assists: 1, matches: 4, radar: [50, 84, 94, 82, 65, 86] },
+                    { id: 67, name: 'Rodrygo', pos: 'Attaquant', goals: 0, assists: 1, matches: 5, radar: [82, 82, 38, 74, 89, 82] },
+                    { id: 68, name: 'Marquinhos', pos: 'Défenseur', goals: 0, assists: 0, matches: 5, radar: [55, 82, 92, 86, 70, 80] },
+                    { id: 69, name: 'Raphinha', pos: 'Attaquant', goals: 0, assists: 1, matches: 5, radar: [80, 82, 44, 76, 88, 80] },
+                    { id: 70, name: 'Alisson', pos: 'Gardien', goals: 0, assists: 0, matches: 4, radar: [88, 86, 86, 82, 55, 90] }
+                ]
+            },
+            'POR': {
+                id: 'POR', name: 'Portugal', flag: 'pt', color: '#800000', result: 'Quart de finale',
+                stats: { matches: 5, goals: 12, conceded: 6 },
+                matches: [
+                    { stage: 'Groupe', opp: 'Ghana', score: '3 - 2', conceded: 2 },
+                    { stage: 'Groupe', opp: 'Uruguay', score: '2 - 0', conceded: 0 },
+                    { stage: 'Groupe', opp: 'Corée du Sud', score: '1 - 2', conceded: 2 },
+                    { stage: '1/8 finale', opp: 'Suisse', score: '6 - 1', conceded: 1 },
+                    { stage: '1/4 finale', opp: 'Maroc', score: '0 - 1', conceded: 1 }
+                ],
+                players: [
+                    { id: 71, name: 'Gonçalo Ramos', pos: 'Attaquant', goals: 3, assists: 1, matches: 4, radar: [88, 74, 46, 84, 80, 78] },
+                    { id: 72, name: 'Bruno Fernandes', pos: 'Milieu', goals: 2, assists: 3, matches: 4, radar: [86, 92, 65, 80, 84, 94] },
+                    { id: 73, name: 'Rafael Leão', pos: 'Attaquant', goals: 2, assists: 0, matches: 5, radar: [86, 76, 35, 88, 93, 78] },
+                    { id: 74, name: 'João Félix', pos: 'Attaquant', goals: 1, assists: 2, matches: 4, radar: [83, 85, 42, 74, 90, 88] },
+                    { id: 75, name: 'Cristiano Ronaldo', pos: 'Attaquant', goals: 1, assists: 0, matches: 5, radar: [88, 76, 35, 82, 80, 78] },
+                    { id: 76, name: 'Pepe', pos: 'Défenseur', goals: 1, assists: 0, matches: 4, radar: [55, 75, 93, 91, 55, 72] },
+                    { id: 77, name: 'Raphaël Guerreiro', pos: 'Défenseur', goals: 1, assists: 2, matches: 4, radar: [74, 85, 78, 76, 82, 84] },
+                    { id: 78, name: 'Ricardo Horta', pos: 'Attaquant', goals: 1, assists: 0, matches: 3, radar: [78, 75, 42, 75, 80, 76] },
+                    { id: 79, name: 'Diogo Dalot', pos: 'Défenseur', goals: 0, assists: 2, matches: 3, radar: [65, 80, 82, 86, 80, 78] },
+                    { id: 80, name: 'Diogo Costa', pos: 'Gardien', goals: 0, assists: 0, matches: 5, radar: [84, 82, 85, 80, 48, 88] }
+                ]
+            }
+        };
+
+        let currentChart = null; let selectedTeam = null; let selectedPlayer = null;
+        const app = document.getElementById('app');
+
+        function updateThemeColor(color) { document.documentElement.style.setProperty('--team-color', color || '#111827'); }
+
+        function renderHome() {
+            updateThemeColor('#111827');
+            app.innerHTML = `
+                <div class="content-wrapper">
+                    <div class="page-header">
+                        <div>
+                            <h2>Coupe du Monde 2022 - Tableau de bord</h2>
+                            <p style="color: var(--text-muted); margin-top: 5px;">Analyse officielle des 8 meilleures équipes du tournoi</p>
+                        </div>
+                    </div>
+                    <div class="grid-4">
+                        ${Object.values(teamsData).map(team => `
+                            <div class="card team-grid-card" onclick="navigate('team', '${team.id}')">
+                                <div class="card-title">${team.result}</div>
+                                <img src="https://flagcdn.com/w80/${team.flag}.png" style="width: 60px; box-shadow: var(--shadow-sm); border-radius: 4px;">
+                                <h3 style="font-size: 1.1rem;">${team.name}</h3>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            highlightSidebar(null);
+        }
+
+        function renderTeam(teamId) {
+            selectedTeam = teamsData[teamId];
+            updateThemeColor(selectedTeam.color);
+            highlightSidebar(teamId);
+
+            const totalAssists = selectedTeam.players.reduce((sum, p) => sum + p.assists, 0);
+
+            app.innerHTML = `
+                <div class="content-wrapper">
+                    <button class="back-btn" onclick="navigate('home')">← Retour au tableau de bord</button>
+                    <div class="page-header">
+                        <h2><img src="https://flagcdn.com/w80/${selectedTeam.flag}.png" class="header-flag"> ${selectedTeam.name}</h2>
+                        <span class="badge">${selectedTeam.result}</span>
+                    </div>
+
+                    <div class="grid-4">
+                        <div class="card stat-card"><div class="card-title">Matchs joués</div><div class="value">${selectedTeam.stats.matches}</div><p class="click-hint">Total du tournoi</p></div>
+                        <div class="card stat-card" onclick="showTeamScorers('${selectedTeam.id}')"><div class="card-title">Buts marqués</div><div class="value">${selectedTeam.stats.goals}</div><p class="click-hint">↑ Voir les buteurs</p></div>
+                        <div class="card stat-card" onclick="showTeamAssists('${selectedTeam.id}')"><div class="card-title">Passes décisives</div><div class="value">${totalAssists}</div><p class="click-hint">↑ Voir les passeurs</p></div>
+                        <div class="card stat-card" onclick="showTeamConceded('${selectedTeam.id}')"><div class="card-title">Buts encaissés</div><div class="value">${selectedTeam.stats.conceded}</div><p class="click-hint">↑ Voir contre qui</p></div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="list-container">
+                            <div class="list-header">Effectif analysé (Sélection)</div>
+                            <div class="squad-list">
+                                ${selectedTeam.players.map(p => `
+                                    <div class="list-row player-row" onclick="navigate('player', {t: '${teamId}', p:${p.id}})">
+                                        <div><div class="player-name">${p.name}</div><div class="player-pos">${p.pos}</div></div>
+                                        <div class="player-stat" style="color: var(--text-muted); font-size:0.8rem;">Voir le profil →</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="list-container">
+                            <div class="list-header">Parcours de l'équipe (Officiel)</div>
+                            <div class="squad-list">
+                                ${selectedTeam.matches.map(m => `
+                                    <div class="list-row">
+                                        <span class="player-pos" style="width: 80px;">${m.stage}</span>
+                                        <span class="player-name">vs ${m.opp}</span>
+                                        <span class="player-stat">${m.score}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderPlayer(data) {
+            selectedTeam = teamsData[data.t];
+            selectedPlayer = selectedTeam.players.find(p => p.id === data.p);
+            updateThemeColor(selectedTeam.color);
+
+            const labels = selectedPlayer.pos === 'Gardien' ? 
+                ['Arrêts', 'Relance', 'Sorties', 'Physique', 'Jeu pied', 'Réflexes'] : 
+                ['Tir', 'Passe', 'Défense', 'Physique', 'Dribble', 'Vision'];
+
+            setTimeout(() => {
+                const ctx = document.getElementById('radar').getContext('2d');
+                if (currentChart) currentChart.destroy();
+                currentChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: selectedPlayer.radar, backgroundColor: selectedTeam.color+'33', borderColor: selectedTeam.color, borderWidth: 2, fill: true }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { display: false, min: 0, max: 100 } } }, plugins: { legend: { display: false } } }
+                });
+            }, 50);
+
+            app.innerHTML = `
+                <div class="content-wrapper">
+                    <button class="back-btn" onclick="navigate('team', '${selectedTeam.id}')">← Retour à l'équipe</button>
+                    <div class="page-header">
+                        <h2><img src="https://flagcdn.com/w80/${selectedTeam.flag}.png" class="header-flag" style="height:30px;"> ${selectedPlayer.name}</h2>
+                        <span class="badge">${selectedPlayer.pos}</span>
+                    </div>
+
+                    <div class="grid-3">
+                        <div class="card stat-card" onclick="showPlayerMatches()"><div class="card-title">Matchs joués</div><div class="value">${selectedPlayer.matches}</div><p class="click-hint">↑ Voir la liste</p></div>
+                        <div class="card stat-card" onclick="showPlayerGoals()"><div class="card-title">Buts marqués</div><div class="value">${selectedPlayer.goals}</div><p class="click-hint">↑ Détails des buts</p></div>
+                        <div class="card stat-card" onclick="showPlayerAssists()"><div class="card-title">Passes décisives</div><div class="value">${selectedPlayer.assists}</div><p class="click-hint">↑ Détails des passes</p></div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="card card-clickable" onclick="showPlayerAnalytics()">
+                            <div class="card-title">Profil analytique</div>
+                            <div style="height:300px;"><canvas id="radar"></canvas></div>
+                            <p class="click-hint">↑ Cliquez pour voir toutes les statistiques détaillées</p>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function navigate(view, data) {
+            window.scrollTo(0, 0);
+            if(view === 'home') renderHome();
+            else if(view === 'team') renderTeam(data);
+            else if(view === 'player') renderPlayer(data);
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('sidebarList');
+            list.innerHTML = Object.values(teamsData).map(t => `
+                <div class="team-item" id="nav-${t.id}" onclick="navigate('team', '${t.id}')">
+                    <img src="https://flagcdn.com/w40/${t.flag}.png" class="team-flag"> <span class="team-name">${t.name}</span>
+                </div>
+            `).join('');
+        }
+
+        function highlightSidebar(id) {
+            document.querySelectorAll('.team-item').forEach(el => el.classList.remove('active'));
+            if(id) {
+                const el = document.getElementById(`nav-${id}`);
+                if(el) el.classList.add('active');
+            }
+        }
+
+        function openModal(title, html) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('dataModal').classList.add('active');
+        }
+        function closeModal() { document.getElementById('dataModal').classList.remove('active'); }
+        document.getElementById('dataModal').addEventListener('click', function(e) { if(e.target === this) closeModal(); });
+
+        function showTeamScorers(teamId) {
+            const team = teamsData[teamId];
+            const scorers = team.players.filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals);
+            let html = scorers.map(p => `<div class="list-row"><div><div class="player-name">${p.name}</div><div class="player-pos">${p.pos}</div></div><div class="player-stat" style="font-size: 1.2rem;">${p.goals} ⚽</div></div>`).join('');
+            openModal(`Buteurs : ${team.name}`, html || '<div class="list-row">Aucun but marqué.</div>');
+        }
+
+        function showTeamAssists(teamId) {
+            const team = teamsData[teamId];
+            const assists = team.players.filter(p => p.assists > 0).sort((a, b) => b.assists - a.assists);
+            let html = assists.map(p => `<div class="list-row"><div><div class="player-name">${p.name}</div><div class="player-pos">${p.pos}</div></div><div class="player-stat" style="font-size: 1.2rem;">${p.assists} 👟</div></div>`).join('');
+            openModal(`Passeurs : ${team.name}`, html || '<div class="list-row">Aucune passe décisive.</div>');
+        }
+
+        function showTeamConceded(teamId) {
+            const team = teamsData[teamId];
+            const concededMatches = team.matches.filter(m => m.conceded > 0);
+            let html = concededMatches.map(m => `
+                <div class="list-row">
+                    <div>
+                        <div class="player-name">vs ${m.opp}</div>
+                        <div class="player-pos">${m.stage} (Score : ${m.score})</div>
+                    </div>
+                    <div class="player-stat" style="color: #dc2626; font-size: 1.1rem;">${m.conceded} but${m.conceded > 1 ? 's' : ''} encaissé${m.conceded > 1 ? 's' : ''}</div>
+                </div>
+            `).join('');
+            openModal(`Détail des buts encaissés : ${team.name}`, html || '<div class="list-row">Aucun but encaissé (Clean Sheet total).</div>');
+        }
+
+        function showPlayerMatches() {
+            let html = selectedTeam.matches.slice(0, selectedPlayer.matches).map(m => `<div class="list-row"><div><div class="player-name">vs ${m.opp}</div><div class="player-pos">${m.stage}</div></div><div class="player-stat">${m.score}</div></div>`).join('');
+            openModal(`Matchs joués par ${selectedPlayer.name}`, html || '<div class="list-row">Aucun match joué.</div>');
+        }
+
+        function showPlayerGoals() {
+            if(selectedPlayer.goals === 0) return openModal(`Buts de ${selectedPlayer.name}`, '<div class="list-row">Aucun but marqué lors de la compétition.</div>');
+            let html = Array.from({length: selectedPlayer.goals}).map((_, i) => `<div class="list-row"><div><div class="player-name">⚽ But #${i+1} validé</div><div class="player-pos">Coupe du Monde 2022</div></div></div>`).join('');
+            openModal(`Buts de ${selectedPlayer.name}`, html);
+        }
+
+        function showPlayerAssists() {
+            if(selectedPlayer.assists === 0) return openModal(`Passes D. de ${selectedPlayer.name}`, '<div class="list-row">Aucune passe décisive lors de la compétition.</div>');
+            let html = Array.from({length: selectedPlayer.assists}).map((_, i) => `<div class="list-row"><div><div class="player-name">👟 Passe décisive #${i+1}</div><div class="player-pos">Coupe du Monde 2022</div></div></div>`).join('');
+            openModal(`Passes D. de ${selectedPlayer.name}`, html);
+        }
+
+        function showPlayerAnalytics() {
+            const labels = selectedPlayer.pos === 'Gardien' ? 
+                ['Arrêts', 'Relance', 'Sorties', 'Physique', 'Jeu au pied', 'Réflexes'] : 
+                ['Tir', 'Passe', 'Défense', 'Physique', 'Dribble', 'Vision'];
+            
+            let html = `
+                <div style="padding: 15px 20px; background-color: var(--bg-hover); border-bottom: 1px solid var(--border-color);">
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Indice d'impact calculé sur 100 à partir des rapports de performance FIFA/Opta.</p>
+                </div>
+            `;
+            
+            labels.forEach((label, idx) => {
+                const score = selectedPlayer.radar[idx];
+                html += `
+                    <div class="list-row">
+                        <div>
+                            <div class="player-name">${label}</div>
+                            <div class="player-pos">Percentile de performance</div>
+                        </div>
+                        <div class="player-stat" style="font-size: 1.15rem;">${score} / 100</div>
+                    </div>
+                `;
+            });
+
+            const avgScore = (selectedPlayer.radar.reduce((a, b) => a + b, 0) / 6).toFixed(1);
+            html += `
+                <div class="list-row" style="background-color: rgba(0,0,0,0.02); font-weight: 700;">
+                    <div>
+                        <div class="player-name">Score Global Moyen</div>
+                        <div class="player-pos">Synthèse décisionnelle</div>
+                    </div>
+                    <div class="player-stat" style="font-size: 1.3rem;">${avgScore} / 100</div>
+                </div>
+            `;
+
+            openModal(`Statistiques Détaillées : ${selectedPlayer.name}`, html);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const filter = e.target.value.toLowerCase();
+            document.querySelectorAll('.team-item').forEach(el => {
+                const name = el.querySelector('.team-name').innerText.toLowerCase();
+                el.style.display = name.includes(filter) ? 'flex' : 'none';
+            });
+        });
+
+        renderSidebar();
+        navigate('home');
+    </script>
+</body>
+</html>
